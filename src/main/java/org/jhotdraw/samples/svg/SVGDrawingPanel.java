@@ -1,7 +1,7 @@
 /*
  * @(#)JSVGDrawingAppletPanel.java
  *
- * Copyright (c) 1996-2008 by the original authors of JHotDraw
+ * Copyright (c) 1996-2010 by the original authors of JHotDraw
  * and all its contributors.
  * All rights reserved.
  *
@@ -13,9 +13,12 @@
  */
 package org.jhotdraw.samples.svg;
 
+import org.jhotdraw.draw.io.TextInputFormat;
+import org.jhotdraw.draw.io.OutputFormat;
+import org.jhotdraw.draw.io.InputFormat;
+import org.jhotdraw.draw.io.ImageOutputFormat;
+import org.jhotdraw.draw.io.ImageInputFormat;
 import java.lang.reflect.InvocationTargetException;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import java.util.prefs.*;
 import org.jhotdraw.undo.*;
 import org.jhotdraw.util.*;
@@ -28,7 +31,6 @@ import java.io.File;
 import java.io.IOException;
 import java.util.*;
 import javax.swing.*;
-import javax.swing.text.JTextComponent;
 import org.jhotdraw.beans.Disposable;
 import org.jhotdraw.gui.ToolBarLayout;
 import org.jhotdraw.draw.*;
@@ -46,7 +48,7 @@ import static org.jhotdraw.samples.svg.SVGAttributeKeys.*;
  * JSVGDrawingAppletPanel.
  * 
  * @author Werner Randelshofer
- * @version $Id: SVGDrawingPanel.java 551 2009-09-03 05:50:46Z rawcoder $
+ * @version $Id: SVGDrawingPanel.java 604 2010-01-09 12:00:29Z rawcoder $
  */
 public class SVGDrawingPanel extends JPanel implements Disposable {
 
@@ -98,8 +100,9 @@ public class SVGDrawingPanel extends JPanel implements Disposable {
         } catch (SecurityException e) {
             // prefs is null, because we are not permitted to read preferences
         }
-
+        
         initComponents();
+
         toolsPane.setLayout(new ToolBarLayout());
         toolsPane.setBackground(new Color(0xf0f0f0));
         toolsPane.setOpaque(true);
@@ -112,19 +115,13 @@ public class SVGDrawingPanel extends JPanel implements Disposable {
         view.setDrawing(drawing);
         drawing.addUndoableEditListener(undoManager);
 
-        /* FIXME - Implement the code for handling constraints!
-        toggleGridAction = actionToolBar.getToggleGridAction();
-        if (prefs != null && prefs.getBoolean("gridVisible", false)) {
-        view.setConstrainer(view.getOnConstrainer());
+        // Try to install the DnDDrawingViewTransferHandler
+        // Since this class only works on J2SE 6, we have to use reflection.
+        try {
+            view.setTransferHandler((TransferHandler) Class.forName("org.jhotdraw.draw.DnDDrawingViewTransferHandler").newInstance());
+        } catch (Exception e) {
+            // bail silently
         }
-        view.addPropertyChangeListener(new PropertyChangeListener() {
-        public void propertyChange(PropertyChangeEvent evt) {
-        if (evt.getPropertyName().equals("constrainer") && prefs) {
-        prefs.putBoolean("gridVisible", evt.getNewValue() == toggleGridAction.getOnConstrainer());
-        }
-        }
-        });
-         */
 
         // Sort the toolbars according to the user preferences
         ArrayList<JToolBar> sortme = new ArrayList<JToolBar>();
@@ -197,11 +194,9 @@ public class SVGDrawingPanel extends JPanel implements Disposable {
         Drawing drawing = new QuadTreeDrawing();
         LinkedList<InputFormat> inputFormats = new LinkedList<InputFormat>();
         inputFormats.add(new SVGZInputFormat());
-        inputFormats.add(new ImageInputFormat(new SVGImageFigure()));
-        inputFormats.add(new ImageInputFormat(new SVGImageFigure(), "JPG", "Joint Photographics Experts Group (JPEG)", "jpg", BufferedImage.TYPE_INT_RGB));
-        inputFormats.add(new ImageInputFormat(new SVGImageFigure(), "GIF", "Graphics Interchange Format (GIF)", "gif", BufferedImage.TYPE_INT_ARGB));
-        inputFormats.add(new ImageInputFormat(new SVGImageFigure(), "PNG", "Portable Network Graphics (PNG)", "png", BufferedImage.TYPE_INT_ARGB));
-        inputFormats.add(new PictImageInputFormat(new SVGImageFigure()));
+        inputFormats.add(new ImageInputFormat(new SVGImageFigure(), "PNG", "Portable Network Graphics (PNG)", "png", "image/png"));
+        inputFormats.add(new ImageInputFormat(new SVGImageFigure(), "JPG", "Joint Photographics Experts Group (JPEG)", "jpg","image/jpg"));
+        inputFormats.add(new ImageInputFormat(new SVGImageFigure(), "GIF", "Graphics Interchange Format (GIF)", "gif", "image/gif"));
         inputFormats.add(new TextInputFormat(new SVGTextFigure()));
         drawing.setInputFormats(inputFormats);
         LinkedList<OutputFormat> outputFormats = new LinkedList<OutputFormat>();

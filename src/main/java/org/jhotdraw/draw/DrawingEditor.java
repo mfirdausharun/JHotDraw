@@ -1,7 +1,7 @@
 /*
  * @(#)DrawingEditor.java
  *
- * Copyright (c) 1996-2008 by the original authors of JHotDraw
+ * Copyright (c) 1996-2010 by the original authors of JHotDraw
  * and all its contributors.
  * All rights reserved.
  *
@@ -13,43 +13,52 @@
  */
 package org.jhotdraw.draw;
 
+import org.jhotdraw.draw.tool.Tool;
 import java.awt.*;
 import java.beans.*;
 import java.util.*;
+import javax.swing.ActionMap;
+import javax.swing.InputMap;
 
 /**
  * A <em>drawing editor</em> coordinates drawing tools and drawing views.
  * 
- * <p><b>Usage of drawing editors with the application framework</b>
- * For {@link org.jhotdraw.app.Application}s which provide a single document
+ * <p>Usage of drawing editor in conjunction with the JHotDraw application framework:</p>
+ * <ul>
+ * <li>For {@link org.jhotdraw.app.Application}s which provide a single document
  * interface (SDI) there is typically one drawing editor instance per
  * {@link org.jhotdraw.app.View}. So that each view can have its own toolbars
- * and drawing palettes.
- * <p>
- * For applications with a Windows-style multiple document interface (MDI) there
+ * and drawing palettes.</li>
+ * <li>For applications with a Windows-style multiple document interface (MDI) there
  * is typically one drawing editor instance per parent window. All views within
  * a parent window share the toolbars and drawing palettes provided be the
- * parent window.
- * <p>
- * For applications with a Mac OS X-style application document interface (OSX) 
+ * parent window.</li>
+ * <li>For applications with a Mac OS X-style application document interface (OSX)
  * there is typically a single drawing editor instance for the application. All
  * views within the application share a single set of toolbars and
- * drawing palettes.
- *
+ * drawing palettes.</li>
+ * </ul>
  * <hr>
  * <b>Design Patterns</b>
  *
  * <p><em>Framework</em><br>
  * The following interfaces define the contracts of a framework for structured
  * drawing editors:<br>
- * Contract: {@link Drawing}, {@link Figure}, {@link CompositeFigure},
- * {@link ConnectionFigure}, {@link Connector}, {@link DrawingView},
- * {@link DrawingEditor}, {@link Handle} and {@link Tool}.
+ * Contract: {@link Drawing}, {@link Figure}, {@link DrawingView},
+ * {@link DrawingEditor}, {@link org.jhotdraw.draw.handle.Handle} and
+ * {@link org.jhotdraw.draw.tool.Tool}.
  *
  * <p><em>Mediator</em><br>
  * {@code DrawingEditor} acts as a mediator for coordinating drawing tools
  * and drawing views:<br>
- * Mediator: {@link DrawingEditor}; Colleagues: {@link DrawingView}, {@link Tool}.
+ * Mediator: {@link DrawingEditor}; Colleagues: {@link DrawingView}, 
+ * {@link org.jhotdraw.draw.tool.Tool}.
+ *
+ * <p><em>Mediator</em><br>
+ * {@code DrawingEditor} acts as a mediator for coordinating keyboard input from
+ * {@code Tool}s and Swing action objects:<br>
+ * Mediator: {@link DrawingEditor}; Colleagues: 
+ * {@link org.jhotdraw.draw.tool.Tool}, javax.swing.Action.
  *
  * <p><em>Model-View-Controller</em><br>
  * The following classes implement together the Model-View-Controller design
@@ -61,18 +70,19 @@ import java.util.*;
  * State changes of tools can be observed by other objects. Specifically
  * {@code DrawingEditor} observes area invalidations of tools and repaints
  * its active drawing view accordingly.<br>
- * Subject: {@link Tool}; Observer: {@link ToolListener}; Event:
- * {@link ToolEvent}; Concrete Observer: {@link DrawingEditor}.
+ * Subject: {@link Tool}; 
+ * Observer: {@link org.jhotdraw.draw.event.ToolListener}; Event:
+ * {@link org.jhotdraw.draw.event.ToolEvent}; Concrete Observer: {@link DrawingEditor}.
  *
  * <p><em>Proxy</em><br>
  * To remove the need for null-handling, {@code AbstractTool} makes use of
- * a proxy for {@code DrawingEditor}.
+ * a proxy for {@code DrawingEditor}.<br>
  * Subject: {@link DrawingEditor}; Proxy: {@link DrawingEditorProxy};
- * Client: {@link AbstractTool}.
+ * Client: {@link org.jhotdraw.draw.tool.AbstractTool}.
  * <hr>
  * 
  * @author Werner Randelshofer
- * @version $Id: DrawingEditor.java 527 2009-06-07 14:28:19Z rawcoder $
+ * @version $Id: DrawingEditor.java 604 2010-01-09 12:00:29Z rawcoder $
  */
 public interface DrawingEditor {
 
@@ -84,6 +94,14 @@ public interface DrawingEditor {
      * The property name for the active tool property.
      */
     public final static String TOOL_PROPERTY = "tool";
+    /**
+     * The property name for the input map property.
+     */
+    public final static String INPUT_MAP_PROPERTY = "inputMap";
+    /**
+     * The property name for the action map property.
+     */
+    public final static String ACTION_MAP_PROPERTY = "actionMap";
 
     /**
      * Gets the editor's current drawing.
@@ -205,6 +223,44 @@ public interface DrawingEditor {
      * set value. If the handle attribute has not been set, returns key.getDefaultValue().
      */
     public <T> T getHandleAttribute(AttributeKey<T> key);
+
+    /**
+     * Sets the input map used by the tool of this drawing editor as a fall back
+     * for handling keyboard events.
+     * <p>
+     * This is a bound property.
+     */
+    public void setInputMap(InputMap newValue);
+    /**
+     * Sets the input map used by the tool of this drawing editor as a fall back
+     * for handling keyboard events.
+     * <p>
+     * {@code Tool}s use the input map of the drawing editor to determine what
+     * to do when a key was pressed that the tool can not handle.
+     * <p>
+     * This is a bound property.
+     */
+    public InputMap getInputMap();
+
+    /**
+     * Sets the action map used by the tool of this drawing editor as a fall back
+     * for performing actions.
+     * <p>
+     * This is a bound property.
+     */
+    public void setActionMap(ActionMap newValue);
+
+    /**
+     * Gets the action map used by the tool of this drawing editor as a fall back
+     * for performing actions.
+     * <p>
+     * {@code Tool}s use the action map of the drawing editor to determine what
+     * to do when an action needs to be invoked from the InputMap of the
+     * drawing editor.
+     * <p>
+     * This is a bound property.
+     */
+    public ActionMap getActionMap();
 
     /**
      * Sets the enabled state of the drawing editor.

@@ -1,7 +1,7 @@
 /*
  * @(#)SVGTextArea.java
  *
- * Copyright (c) 1996-2009 by the original authors of JHotDraw
+ * Copyright (c) 1996-2010 by the original authors of JHotDraw
  * and all its contributors.
  * All rights reserved.
  *
@@ -13,6 +13,16 @@
  */
 package org.jhotdraw.samples.svg.figures;
 
+import org.jhotdraw.draw.tool.Tool;
+import org.jhotdraw.draw.handle.TransformHandleKit;
+import org.jhotdraw.draw.handle.ResizeHandleKit;
+import org.jhotdraw.draw.handle.Handle;
+import org.jhotdraw.draw.TextHolderFigure;
+import org.jhotdraw.draw.tool.TextAreaEditingTool;
+import org.jhotdraw.draw.handle.TextOverflowHandle;
+import org.jhotdraw.draw.handle.FontSizeHandle;
+import org.jhotdraw.draw.connector.Connector;
+import org.jhotdraw.draw.ConnectionFigure;
 import java.awt.*;
 import java.awt.font.*;
 import java.awt.geom.*;
@@ -20,6 +30,7 @@ import java.text.*;
 import java.util.*;
 import static org.jhotdraw.samples.svg.SVGAttributeKeys.*;
 import org.jhotdraw.draw.*;
+import org.jhotdraw.draw.handle.BoundsOutlineHandle;
 import org.jhotdraw.samples.svg.*;
 import org.jhotdraw.geom.*;
 
@@ -27,7 +38,7 @@ import org.jhotdraw.geom.*;
  * SVGTextArea.
  *
  * @author Werner Randelshofer
- * @version $Id: SVGTextAreaFigure.java 564 2009-10-10 10:21:01Z rawcoder $
+ * @version $Id: SVGTextAreaFigure.java 613 2010-01-12 10:23:31Z rawcoder $
  */
 public class SVGTextAreaFigure extends SVGAttributedFigure
         implements SVGFigure, TextHolderFigure {
@@ -53,6 +64,7 @@ public class SVGTextAreaFigure extends SVGAttributedFigure
     public SVGTextAreaFigure(String text) {
         setText(text);
         SVGAttributeKeys.setDefaults(this);
+        setConnectable(false);
     }
     // DRAWING
 
@@ -109,8 +121,8 @@ public class SVGTextAreaFigure extends SVGAttributedFigure
 
     private Shape getTextShape() {
         if (cachedTextShape == null) {
-            GeneralPath shape;
-            cachedTextShape = shape = new GeneralPath();
+            Path2D.Double shape;
+            cachedTextShape = shape = new Path2D.Double();
             if (getText() != null || isEditable()) {
 
                 Font font = getFont();
@@ -172,11 +184,11 @@ public class SVGTextAreaFigure extends SVGAttributedFigure
      * @param leftMargin the left bound of the paragraph
      * @param rightMargin the right bound of the paragraph
      * @param tabStops an array with tab stops
-     * @param tabCounts the number of entries in tabStops which contain actual
+     * @param tabCount the number of entries in tabStops which contain actual
      *        values
      * @return Returns the actual bounds of the paragraph.
      */
-    private Rectangle2D.Double appendParagraph(GeneralPath shape,
+    private Rectangle2D.Double appendParagraph(Path2D.Double shape,
             AttributedCharacterIterator styledText,
             float verticalPos, float maxVerticalPos,
             float leftMargin, float rightMargin,
@@ -498,18 +510,6 @@ public class SVGTextAreaFigure extends SVGAttributedFigure
         return null;
     }
 // CONNECTING
-
-    public boolean canConnect() {
-        return false; // SVG does not support connecting
-    }
-
-    public Connector findConnector(Point2D.Double p, ConnectionFigure prototype) {
-        return null; // SVG does not support connectors
-    }
-
-    public Connector findCompatibleConnector(Connector c, boolean isStartConnector) {
-        return null; // SVG does not support connectors
-    }
 // COMPOSITE FIGURES
 // CLONING
 // EVENT HANDLING

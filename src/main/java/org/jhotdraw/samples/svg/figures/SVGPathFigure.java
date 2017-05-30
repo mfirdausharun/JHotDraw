@@ -1,7 +1,7 @@
 /*
  * @(#)SVGPathFigure.java
  *
- * Copyright (c) 1996-2009 by the original authors of JHotDraw
+ * Copyright (c) 1996-2010 by the original authors of JHotDraw
  * and all its contributors.
  * All rights reserved.
  *
@@ -13,6 +13,11 @@
  */
 package org.jhotdraw.samples.svg.figures;
 
+import org.jhotdraw.draw.handle.TransformHandleKit;
+import org.jhotdraw.draw.handle.Handle;
+import org.jhotdraw.draw.connector.Connector;
+import org.jhotdraw.draw.ConnectionFigure;
+import org.jhotdraw.draw.AbstractAttributedCompositeFigure;
 import java.awt.*;
 import java.awt.event.*;
 import java.awt.geom.*;
@@ -33,14 +38,14 @@ import static org.jhotdraw.samples.svg.SVGAttributeKeys.*;
  * SVGBezierFigures as its children.
  *
  * @author Werner Randelshofer
- * @version $Id: SVGPathFigure.java 564 2009-10-10 10:21:01Z rawcoder $
+ * @version $Id: SVGPathFigure.java 613 2010-01-12 10:23:31Z rawcoder $
  */
 public class SVGPathFigure extends AbstractAttributedCompositeFigure implements SVGFigure {
 
     /**
-     * This cachedPath is used for drawing.
+     * This cached path is used for drawing.
      */
-    private transient GeneralPath cachedPath;
+    private transient Path2D.Double cachedPath;
    // private transient Rectangle2D.Double cachedDrawingArea;
     /**
      * This is used to perform faster hit testing.
@@ -56,6 +61,7 @@ public class SVGPathFigure extends AbstractAttributedCompositeFigure implements 
     public SVGPathFigure(boolean isEmpty) {
         if (! isEmpty) { add(new SVGBezierFigure()); }
         SVGAttributeKeys.setDefaults(this);
+        setConnectable(false);
     }
 
     public void draw(Graphics2D g) {
@@ -135,10 +141,10 @@ public class SVGPathFigure extends AbstractAttributedCompositeFigure implements 
         cachedHitShape = null;
     }
 
-    protected GeneralPath getPath() {
+    protected Path2D.Double getPath() {
         if (cachedPath == null) {
-            cachedPath = new GeneralPath();
-            cachedPath.setWindingRule(get(WINDING_RULE) == WindingRule.EVEN_ODD ? GeneralPath.WIND_EVEN_ODD : GeneralPath.WIND_NON_ZERO);
+            cachedPath = new Path2D.Double();
+            cachedPath.setWindingRule(get(WINDING_RULE) == WindingRule.EVEN_ODD ? Path2D.Double.WIND_EVEN_ODD : Path2D.Double.WIND_NON_ZERO);
             for (Figure child : getChildren()) {
                 SVGBezierFigure b = (SVGBezierFigure) child;
                 cachedPath.append(b.getBezierPath(), false);
@@ -161,19 +167,21 @@ public class SVGPathFigure extends AbstractAttributedCompositeFigure implements 
     // int count;
     public Rectangle2D.Double getDrawingArea() {
         if (cachedDrawingArea == null) {
-            double strokeTotalWidth = AttributeKeys.getStrokeTotalWidth(this);
+            double strokeTotalWidth = Math.max(1d,AttributeKeys.getStrokeTotalWidth(this));
             double width = strokeTotalWidth / 2d;
             if (get(STROKE_JOIN) == BasicStroke.JOIN_MITER) {
                 width *= get(STROKE_MITER_LIMIT);
             } else if (get(STROKE_CAP) != BasicStroke.CAP_BUTT) {
                 width += strokeTotalWidth * 2;
             }
-            GeneralPath gp = (GeneralPath) getPath();
+            Shape gp = (Path2D.Double) getPath();
             Rectangle2D strokeRect = new Rectangle2D.Double(0, 0, width, width);
-            if (get(TRANSFORM) != null) {
-                gp = (GeneralPath) gp.clone();
-                gp.transform(get(TRANSFORM));
-                strokeRect = get(TRANSFORM).createTransformedShape(strokeRect).getBounds2D();
+            AffineTransform tx = get(TRANSFORM);
+            if (tx != null) {
+                // We have to use the (rectangular) bounds of the path here,
+                // because we draw a rectangular handle over the shape of the figure
+                gp = tx.createTransformedShape(gp.getBounds2D());
+                strokeRect = tx.createTransformedShape(strokeRect).getBounds2D();
             }
             Rectangle2D rx = gp.getBounds2D();
             Rectangle2D.Double r = (rx instanceof Rectangle2D.Double) ? (Rectangle2D.Double) rx : new Rectangle2D.Double(rx.getX(), rx.getY(), rx.getWidth(), rx.getHeight());
@@ -202,7 +210,7 @@ public class SVGPathFigure extends AbstractAttributedCompositeFigure implements 
                 ex.printStackTrace();
             }
         }
-        boolean isClosed = getChild(0).get(CLOSED);
+        boolean isClosed = getChild(0).get(PATH_CLOSED);
         if (isClosed && get(FILL_COLOR) == null && get(FILL_GRADIENT)==null) {
             return getHitShape().contains(p);
         }
@@ -215,8 +223,8 @@ public class SVGPathFigure extends AbstractAttributedCompositeFigure implements 
                 return true;
             }
             double grow = AttributeKeys.getPerpendicularHitGrowth(this) /** 2d*/;
-            GrowStroke gs = new GrowStroke((float) grow,
-                    (float) (AttributeKeys.getStrokeTotalWidth(this) *
+            GrowStroke gs = new GrowStroke(grow,
+                    (AttributeKeys.getStrokeTotalWidth(this) *
                     get(STROKE_MITER_LIMIT)));
             if (gs.createStrokedShape(getPath()).contains(p)) {
                 return true;
@@ -393,14 +401,14 @@ public class SVGPathFigure extends AbstractAttributedCompositeFigure implements 
                 }
             });
         }
-        if (getChild(getChildCount() - 1).get(CLOSED)) {
+        if (getChild(getChildCount() - 1).get(PATH_CLOSED)) {
             actions.add(new AbstractAction(labels.getString("attribute.openPath.text")) {
 
                 public void actionPerformed(ActionEvent evt) {
                     willChange();
                     for (Figure child : getChildren()) {
                         getDrawing().fireUndoableEditHappened(
-                                CLOSED.setUndoable(child, false));
+                                PATH_CLOSED.setUndoable(child, false));
                     }
                     changed();
                 }
@@ -411,7 +419,7 @@ public class SVGPathFigure extends AbstractAttributedCompositeFigure implements 
                     willChange();
                     for (Figure child : getChildren()) {
                         getDrawing().fireUndoableEditHappened(
-                                CLOSED.setUndoable(child, true));
+                                PATH_CLOSED.setUndoable(child, true));
                     }
                     changed();
                 }
@@ -440,18 +448,7 @@ public class SVGPathFigure extends AbstractAttributedCompositeFigure implements 
         return actions;
     }
     // CONNECTING
-    public boolean canConnect() {
-        return false; // SVG does not support connecting
-    }
-
-    public Connector findConnector(Point2D.Double p, ConnectionFigure prototype) {
-        return null; // SVG does not support connectors
-    }
-
-    public Connector findCompatibleConnector(Connector c, boolean isStartConnector) {
-        return null; // SVG does not support connectors
-    }
-
+    // EDITING
     /**
      * Handles a mouse click.
      */
@@ -460,7 +457,7 @@ public class SVGPathFigure extends AbstractAttributedCompositeFigure implements 
         if (evt.getClickCount() == 2 && view.getHandleDetailLevel() % 2 == 0) {
             for (Figure child : getChildren()) {
                 SVGBezierFigure bf = (SVGBezierFigure) child;
-                int index = bf.findSegment(p, (float) (5f / view.getScaleFactor()));
+                int index = bf.findSegment(p, 5f / view.getScaleFactor());
                 if (index != -1) {
                     bf.handleMouseClick(p, evt, view);
                     evt.consume();

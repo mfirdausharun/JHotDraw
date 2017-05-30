@@ -1,7 +1,7 @@
 /*
  * @(#)AttributeKeys.java
  *
- * Copyright (c) 1996-2009 by the original authors of JHotDraw
+ * Copyright (c) 1996-2010 by the original authors of JHotDraw
  * and all its contributors.
  * All rights reserved.
  *
@@ -13,6 +13,8 @@
  */
 package org.jhotdraw.draw;
 
+import org.jhotdraw.draw.decoration.LineDecoration;
+import org.jhotdraw.draw.liner.Liner;
 import org.jhotdraw.util.ResourceBundleUtil;
 import java.awt.*;
 import java.awt.geom.*;
@@ -27,7 +29,7 @@ import org.jhotdraw.geom.*;
  * class, and to define all needed AttributeKeys as static variables in there.
  *
  * @author Werner Randelshofer
- * @version $Id: AttributeKeys.java 564 2009-10-10 10:21:01Z rawcoder $
+ * @version $Id: AttributeKeys.java 604 2010-01-09 12:00:29Z rawcoder $
  */
 public class AttributeKeys {
 
@@ -60,13 +62,13 @@ public class AttributeKeys {
      */
     public final static AttributeKey<Color> FILL_COLOR = new AttributeKey<Color>("fillColor", Color.class, Color.white, true, labels);
     /**
-     * Close BezierFigure. The value of this attribute is a Boolean object.
+     * Whether to path a BezierFigure is closed. The value of this attribute is a Boolean object.
      */
-    public final static AttributeKey<Boolean> CLOSED = new AttributeKey<Boolean>("closed", Boolean.class, false, false, labels);
+    public final static AttributeKey<Boolean> PATH_CLOSED = new AttributeKey<Boolean>("pathClosed", Boolean.class, false, false, labels);
     /**
-     * Fill BezierFigure. The value of this attribute is a Boolean object.
+     * Whether an unclosed path of a BezierFigure is filled. The value of this attribute is a Boolean object.
      */
-    public final static AttributeKey<Boolean> FILL_OPEN_PATH = new AttributeKey<Boolean>("fillOpenPath", Boolean.class, false, false, labels);
+    public final static AttributeKey<Boolean> UNCLOSED_PATH_FILLED = new AttributeKey<Boolean>("unclosedPathFilled", Boolean.class, false, false, labels);
 
     public static enum WindingRule {
 
@@ -265,7 +267,7 @@ public class AttributeKeys {
     /**
      * The value of this attribute is a Boolean object.
      */
-    public final static AttributeKey<Boolean> FONT_UNDERLINE = new AttributeKey<Boolean>("fontUnderlined", Boolean.class, false, false, labels);
+    public final static AttributeKey<Boolean> FONT_UNDERLINE = new AttributeKey<Boolean>("fontUnderline", Boolean.class, false, false, labels);
     /**
      * The value of this attribute is a Liner object.
      */

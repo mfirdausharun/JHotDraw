@@ -14,6 +14,10 @@
 
 package org.jhotdraw.samples.odg.figures;
 
+import org.jhotdraw.draw.handle.TransformHandleKit;
+import org.jhotdraw.draw.handle.Handle;
+import org.jhotdraw.draw.BezierFigure;
+import org.jhotdraw.draw.handle.BezierNodeHandle;
 import java.awt.event.*;
 import java.awt.geom.*;
 import java.util.*;
@@ -27,7 +31,7 @@ import static org.jhotdraw.samples.odg.ODGAttributeKeys.*;
  * represent a single BezierPath segment within an ODG path.
  * 
  * @author Werner Randelshofer
- * @version $Id: ODGBezierFigure.java 564 2009-10-10 10:21:01Z rawcoder $
+ * @version $Id: ODGBezierFigure.java 582 2009-10-24 08:00:49Z rawcoder $
  */
 public class ODGBezierFigure extends BezierFigure {
     private transient Rectangle2D.Double cachedDrawingArea;
@@ -38,7 +42,7 @@ public class ODGBezierFigure extends BezierFigure {
     }
     public ODGBezierFigure(boolean isClosed) {
         super(isClosed);
-        set(FILL_OPEN_PATH, true);
+        set(UNCLOSED_PATH_FILLED, true);
     }
     
     public Collection<Handle> createHandles(ODGPathFigure pathFigure, int detailLevel) {

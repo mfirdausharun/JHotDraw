@@ -1,7 +1,7 @@
 /*
  * @(#)DrawingEditorProxy.java
  *
- * Copyright (c) 2007 by the original authors of JHotDraw
+ * Copyright (c) 2007-2010 by the original authors of JHotDraw
  * and all its contributors.
  * All rights reserved.
  *
@@ -14,12 +14,15 @@
 
 package org.jhotdraw.draw;
 
+import org.jhotdraw.draw.tool.Tool;
 import java.awt.Container;
 import java.awt.Cursor;
 import java.beans.*;
 import java.io.Serializable;
 import java.util.Collection;
 import java.util.Map;
+import javax.swing.ActionMap;
+import javax.swing.InputMap;
 import org.jhotdraw.beans.AbstractBean;
 
 /**
@@ -31,15 +34,16 @@ import org.jhotdraw.beans.AbstractBean;
  * To remove the need for null-handling, {@code AbstractTool} makes use of
  * a proxy for {@code DrawingEditor}.
  * Subject: {@link DrawingEditor}; Proxy: {@link DrawingEditorProxy};
- * Client: {@link AbstractTool}.
+ * Client: {@link org.jhotdraw.draw.tool.AbstractTool}.
  * <hr>
  *
  *
  * @author Werner Randelshofer
- * @version $Id: DrawingEditorProxy.java 527 2009-06-07 14:28:19Z rawcoder $
+ * @version $Id: DrawingEditorProxy.java 604 2010-01-09 12:00:29Z rawcoder $
  */
 public class DrawingEditorProxy extends AbstractBean implements DrawingEditor {
     private DrawingEditor target;
+
     private class Forwarder implements PropertyChangeListener, Serializable {
           public void propertyChange(PropertyChangeEvent evt) {
               firePropertyChange(evt.getPropertyName(), evt.getOldValue(), evt.getNewValue());
@@ -142,5 +146,21 @@ public class DrawingEditorProxy extends AbstractBean implements DrawingEditor {
 
     public <T> T getHandleAttribute(AttributeKey<T> key) {
         return target.getHandleAttribute(key);
+    }
+
+    public void setInputMap(InputMap newValue) {
+        target.setInputMap(newValue);
+    }
+
+    public InputMap getInputMap() {
+        return target.getInputMap();
+    }
+
+    public void setActionMap(ActionMap newValue) {
+        target.setActionMap(newValue);
+    }
+
+    public ActionMap getActionMap() {
+        return target.getActionMap();
     }
 }

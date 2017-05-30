@@ -1,7 +1,7 @@
 /*
  * @(#)DefaultDrawingEditor.java
  *
- * Copyright (c) 1996-2008 by the original authors of JHotDraw
+ * Copyright (c) 1996-2010 by the original authors of JHotDraw
  * and all its contributors.
  * All rights reserved.
  *
@@ -13,12 +13,28 @@
  */
 package org.jhotdraw.draw;
 
+import org.jhotdraw.app.action.edit.PasteAction;
+import org.jhotdraw.app.action.edit.CutAction;
+import org.jhotdraw.app.action.edit.DeleteAction;
+import org.jhotdraw.app.action.edit.CopyAction;
+import org.jhotdraw.app.action.edit.SelectAllAction;
+import org.jhotdraw.draw.tool.Tool;
+import org.jhotdraw.draw.event.ToolEvent;
+import org.jhotdraw.draw.event.ToolListener;
+import javax.swing.ActionMap;
+import javax.swing.InputMap;
 import org.jhotdraw.beans.*;
 import java.awt.*;
 import java.awt.event.FocusEvent;
 import java.awt.event.FocusListener;
+import java.awt.event.InputEvent;
+import java.awt.event.KeyEvent;
 import java.util.*;
 import javax.swing.JComponent;
+import javax.swing.KeyStroke;
+import org.jhotdraw.app.action.*;
+import org.jhotdraw.draw.action.*;
+import org.jhotdraw.draw.event.ToolAdapter;
 import static org.jhotdraw.draw.AttributeKeys.*;
 
 /**
@@ -27,9 +43,9 @@ import static org.jhotdraw.draw.AttributeKeys.*;
  * XXX - DefaultDrawingEditor should not publicly implement ToolListener.
  *
  * @author Werner Randelshofer
- * @version $Id: DefaultDrawingEditor.java 564 2009-10-10 10:21:01Z rawcoder $
+ * @version $Id: DefaultDrawingEditor.java 604 2010-01-09 12:00:29Z rawcoder $
  */
-public class DefaultDrawingEditor extends AbstractBean implements DrawingEditor, ToolListener {
+public class DefaultDrawingEditor extends AbstractBean implements DrawingEditor {
 
     private HashMap<AttributeKey, Object> defaultAttributes = new HashMap<AttributeKey, Object>();
     private HashMap<AttributeKey, Object> handleAttributes = new HashMap<AttributeKey, Object>();
@@ -37,6 +53,43 @@ public class DefaultDrawingEditor extends AbstractBean implements DrawingEditor,
     private HashSet<DrawingView> views;
     private DrawingView activeView;
     private boolean isEnabled = true;
+    private ToolHandler toolHandler;
+
+    private class ToolHandler extends ToolAdapter {
+
+        @Override
+        public void areaInvalidated(ToolEvent evt) {
+            Rectangle r = evt.getInvalidatedArea();
+            evt.getView().getComponent().repaint(r.x, r.y, r.width, r.height);
+        }
+
+        @Override
+        public void toolStarted(ToolEvent evt) {
+            setActiveView(evt.getView());
+        }
+
+        @Override
+        public void boundsInvalidated(ToolEvent evt) {
+            Drawing d = evt.getView().getDrawing();
+            for (DrawingView v : views) {
+                if (v.getDrawing() == d) {
+                    JComponent c = v.getComponent();
+                    c.revalidate();
+                }
+            }
+        }
+    }
+    /**
+     * The input map of the drawing editor.
+     */
+    private InputMap inputMap;
+    /**
+     * The action map of the drawing editor.
+     */
+    private ActionMap actionMap;
+    /**
+     * The focus handler.
+     */
     private FocusListener focusHandler = new FocusListener() {
 
         public void focusGained(FocusEvent e) {
@@ -44,25 +97,28 @@ public class DefaultDrawingEditor extends AbstractBean implements DrawingEditor,
         }
 
         public void focusLost(FocusEvent e) {
-        /*
-        if (! e.isTemporary()) {
-        setFocusedView(null);
-        }*/
+            /*
+            if (! e.isTemporary()) {
+            setFocusedView(null);
+            }*/
         }
     };
 
     /** Creates a new instance. */
     public DefaultDrawingEditor() {
+        toolHandler = new ToolHandler();
         setDefaultAttribute(FILL_COLOR, Color.white);
         setDefaultAttribute(STROKE_COLOR, Color.black);
         setDefaultAttribute(TEXT_COLOR, Color.black);
 
         views = new HashSet<DrawingView>();
+        inputMap = createInputMap();
+        actionMap = createActionMap();
     }
 
     public void setTool(Tool newValue) {
         Tool oldValue = tool;
-        
+
         if (newValue == tool) {
             return;
         }
@@ -73,7 +129,7 @@ public class DefaultDrawingEditor extends AbstractBean implements DrawingEditor,
                 v.removeKeyListener(tool);
             }
             tool.deactivate(this);
-            tool.removeToolListener(this);
+            tool.removeToolListener(toolHandler);
         }
         tool = newValue;
         if (tool != null) {
@@ -83,43 +139,17 @@ public class DefaultDrawingEditor extends AbstractBean implements DrawingEditor,
                 v.addMouseMotionListener(tool);
                 v.addKeyListener(tool);
             }
-            tool.addToolListener(this);
+            tool.addToolListener(toolHandler);
         }
-        
+
         firePropertyChange(TOOL_PROPERTY, oldValue, newValue);
-    }
-
-    public void areaInvalidated(ToolEvent evt) {
-        Rectangle r = evt.getInvalidatedArea();
-        evt.getView().getComponent().repaint(r.x, r.y, r.width, r.height);
-    }
-    private Dimension preferredViewSize;
-
-    public void toolStarted(ToolEvent evt) {
-        setActiveView(evt.getView());
     }
 
     public void setActiveView(DrawingView newValue) {
         DrawingView oldValue = activeView;
         activeView = newValue;
 
-        if (newValue != null && newValue != oldValue) {
-            preferredViewSize = activeView.getComponent().getPreferredSize();
-        }
         firePropertyChange(ACTIVE_VIEW_PROPERTY, oldValue, newValue);
-    }
-
-    public void toolDone(ToolEvent evt) {
-        // XXX - Maybe we should do this with all views of the editor??
-        DrawingView v = getActiveView();
-        if (v != null) {
-            JComponent c = v.getComponent();
-            Dimension oldPreferredViewSize = preferredViewSize;
-            preferredViewSize = c.getPreferredSize();
-            if (oldPreferredViewSize == null || !oldPreferredViewSize.equals(preferredViewSize)) {
-                c.revalidate();
-            }
-        }
     }
 
     public Tool getTool() {
@@ -131,7 +161,7 @@ public class DefaultDrawingEditor extends AbstractBean implements DrawingEditor,
     }
 
     private void updateActiveView() {
-        DrawingView aView=null;
+        DrawingView aView = null;
         for (DrawingView v : views) {
             if (v.getComponent().isFocusOwner()) {
                 setActiveView(v);
@@ -228,9 +258,125 @@ public class DefaultDrawingEditor extends AbstractBean implements DrawingEditor,
 
     public <T> T getHandleAttribute(AttributeKey<T> key) {
         if (handleAttributes.containsKey(key)) {
-        return key.get(handleAttributes);
+            return key.get(handleAttributes);
         } else {
             return key.getDefaultValue();
         }
+    }
+
+    public void setInputMap(InputMap newValue) {
+        InputMap oldValue = inputMap;
+        inputMap = newValue;
+        firePropertyChange(INPUT_MAP_PROPERTY, oldValue, newValue);
+    }
+
+    public InputMap getInputMap() {
+        return inputMap;
+    }
+
+    public void setActionMap(ActionMap newValue) {
+        ActionMap oldValue = actionMap;
+        actionMap = newValue;
+        firePropertyChange(ACTION_MAP_PROPERTY, oldValue, newValue);
+    }
+
+    public ActionMap getActionMap() {
+        return actionMap;
+    }
+
+    /** Override this method to create a tool-specific input map, which
+     * overrides the input map of the drawing edtior.
+     * <p>
+     * The implementation of this class creates an input map for the following
+     * action ID's:
+     * <ul>
+     * <li>DeleteAction</li>
+     * <li>SelectAllAction/li>
+     * <li>IncreaseHandleDetailLevelAction</li>
+     * <li>MoveConstrainedAction.West, .East, .North, .South</li>
+     * <li>MoveAction.West, .East, .North, .South</li>
+     * <li>CutAction</li>
+     * <li>CopyAction</li>
+     * <li>PasteAction</li>
+     * </ul>
+     */
+    protected InputMap createInputMap() {
+        InputMap m = new InputMap();
+
+        m.put(KeyStroke.getKeyStroke(KeyEvent.VK_DELETE, 0), DeleteAction.ID);
+        m.put(KeyStroke.getKeyStroke(KeyEvent.VK_BACK_SPACE, 0), DeleteAction.ID);
+        m.put(KeyStroke.getKeyStroke(KeyEvent.VK_A, 0), SelectAllAction.ID);
+        m.put(KeyStroke.getKeyStroke(KeyEvent.VK_A, InputEvent.CTRL_DOWN_MASK), SelectAllAction.ID);
+        m.put(KeyStroke.getKeyStroke(KeyEvent.VK_A, InputEvent.META_DOWN_MASK), SelectAllAction.ID);
+        m.put(KeyStroke.getKeyStroke(KeyEvent.VK_SPACE, 0), IncreaseHandleDetailLevelAction.ID);
+
+        m.put(KeyStroke.getKeyStroke(KeyEvent.VK_LEFT, 0), MoveConstrainedAction.West.ID);
+        m.put(KeyStroke.getKeyStroke(KeyEvent.VK_RIGHT, 0), MoveConstrainedAction.East.ID);
+        m.put(KeyStroke.getKeyStroke(KeyEvent.VK_UP, 0), MoveConstrainedAction.North.ID);
+        m.put(KeyStroke.getKeyStroke(KeyEvent.VK_DOWN, 0), MoveConstrainedAction.South.ID);
+
+        m.put(KeyStroke.getKeyStroke(KeyEvent.VK_LEFT, InputEvent.ALT_DOWN_MASK), MoveAction.West.ID);
+        m.put(KeyStroke.getKeyStroke(KeyEvent.VK_RIGHT, InputEvent.ALT_DOWN_MASK), MoveAction.East.ID);
+        m.put(KeyStroke.getKeyStroke(KeyEvent.VK_UP, InputEvent.ALT_DOWN_MASK), MoveAction.North.ID);
+        m.put(KeyStroke.getKeyStroke(KeyEvent.VK_DOWN, InputEvent.ALT_DOWN_MASK), MoveAction.South.ID);
+
+        m.put(KeyStroke.getKeyStroke(KeyEvent.VK_LEFT, InputEvent.SHIFT_DOWN_MASK), MoveAction.West.ID);
+        m.put(KeyStroke.getKeyStroke(KeyEvent.VK_RIGHT, InputEvent.SHIFT_DOWN_MASK), MoveAction.East.ID);
+        m.put(KeyStroke.getKeyStroke(KeyEvent.VK_UP, InputEvent.SHIFT_DOWN_MASK), MoveAction.North.ID);
+        m.put(KeyStroke.getKeyStroke(KeyEvent.VK_DOWN, InputEvent.SHIFT_DOWN_MASK), MoveAction.South.ID);
+
+        m.put(KeyStroke.getKeyStroke(KeyEvent.VK_LEFT, InputEvent.CTRL_DOWN_MASK), MoveAction.West.ID);
+        m.put(KeyStroke.getKeyStroke(KeyEvent.VK_RIGHT, InputEvent.CTRL_DOWN_MASK), MoveAction.East.ID);
+        m.put(KeyStroke.getKeyStroke(KeyEvent.VK_UP, InputEvent.CTRL_DOWN_MASK), MoveAction.North.ID);
+        m.put(KeyStroke.getKeyStroke(KeyEvent.VK_DOWN, InputEvent.CTRL_DOWN_MASK), MoveAction.South.ID);
+
+        m.put(KeyStroke.getKeyStroke(KeyEvent.VK_C, InputEvent.CTRL_DOWN_MASK), CopyAction.ID);
+        m.put(KeyStroke.getKeyStroke(KeyEvent.VK_C, InputEvent.META_DOWN_MASK), CopyAction.ID);
+        m.put(KeyStroke.getKeyStroke(KeyEvent.VK_V, InputEvent.CTRL_DOWN_MASK), PasteAction.ID);
+        m.put(KeyStroke.getKeyStroke(KeyEvent.VK_V, InputEvent.META_DOWN_MASK), PasteAction.ID);
+        m.put(KeyStroke.getKeyStroke(KeyEvent.VK_X, InputEvent.CTRL_DOWN_MASK), CutAction.ID);
+        m.put(KeyStroke.getKeyStroke(KeyEvent.VK_X, InputEvent.META_DOWN_MASK), CutAction.ID);
+
+
+        return m;
+    }
+
+    /** Override this method to create a tool-specific action map, which
+     * overrides the action map of the drawing edtior.
+     * <p>
+     * The implementation of this class creates an action map which maps
+     * the following action ID's to the classes which define them:
+     * <ul>
+     * <li>DeleteAction</li>
+     * <li>SelectAllAction/li>
+     * <li>IncreaseHandleDetailLevelAction</li>
+     * <li>MoveConstrainedAction.West, .East, .North, .South</li>
+     * <li>MoveAction.West, .East, .North, .South</li>
+     * <li>CutAction</li>
+     * <li>CopyAction</li>
+     * <li>PasteAction</li>
+     * </ul>
+     */
+    protected ActionMap createActionMap() {
+        ActionMap m = new ActionMap();
+
+        m.put(DeleteAction.ID, new DeleteAction());
+        m.put(SelectAllAction.ID, new SelectAllAction());
+        m.put(IncreaseHandleDetailLevelAction.ID, new IncreaseHandleDetailLevelAction(this));
+
+        m.put(MoveAction.East.ID, new MoveAction.East(this));
+        m.put(MoveAction.West.ID, new MoveAction.West(this));
+        m.put(MoveAction.North.ID, new MoveAction.North(this));
+        m.put(MoveAction.South.ID, new MoveAction.South(this));
+        m.put(MoveConstrainedAction.East.ID, new MoveConstrainedAction.East(this));
+        m.put(MoveConstrainedAction.West.ID, new MoveConstrainedAction.West(this));
+        m.put(MoveConstrainedAction.North.ID, new MoveConstrainedAction.North(this));
+        m.put(MoveConstrainedAction.South.ID, new MoveConstrainedAction.South(this));
+
+        m.put(CutAction.ID, new CutAction());
+        m.put(CopyAction.ID, new CopyAction());
+        m.put(PasteAction.ID, new PasteAction());
+
+        return m;
     }
 }

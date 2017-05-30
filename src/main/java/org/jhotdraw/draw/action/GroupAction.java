@@ -1,7 +1,7 @@
 /*
  * @(#)GroupAction.java
  *
- * Copyright (c) 1996-2008 by the original authors of JHotDraw
+ * Copyright (c) 1996-2010 by the original authors of JHotDraw
  * and all its contributors.
  * All rights reserved.
  *
@@ -13,6 +13,8 @@
  */
 package org.jhotdraw.draw.action;
 
+import org.jhotdraw.draw.GroupFigure;
+import org.jhotdraw.draw.CompositeFigure;
 import org.jhotdraw.draw.*;
 import java.util.*;
 import javax.swing.undo.*;
@@ -21,7 +23,7 @@ import javax.swing.undo.*;
  * GroupAction.
  *
  * @author  Werner Randelshofer
- * @version $Id: GroupAction.java 527 2009-06-07 14:28:19Z rawcoder $
+ * @version $Id: GroupAction.java 604 2010-01-09 12:00:29Z rawcoder $
  */
 public class GroupAction extends AbstractSelectedAction {
 
@@ -152,6 +154,7 @@ public class GroupAction extends AbstractSelectedAction {
         view.getDrawing().add(index, group);
         group.willChange();
         for (Figure f : sorted) {
+            f.willChange();
             group.basicAdd(f);
         }
         group.changed();
